@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 // Camera import
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from 'expo-router';
@@ -45,41 +44,6 @@ export default function ScanScreen() {
   const pendingBarcodeRef = useRef<string>('');
   const readCountRef = useRef<number>(0);
   const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Audio ref for scan sound
-  const soundRef = useRef<Audio.Sound | null>(null);
-  
-  // Load sound on mount
-  useEffect(() => {
-    const loadSound = async () => {
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          require('@/assets/audio/pekaka-ses.mp3')
-        );
-        soundRef.current = sound;
-      } catch (error) {
-        console.error('Error loading sound:', error);
-      }
-    };
-    loadSound();
-    
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
-  }, []);
-  
-  // Play scan sound
-  const playScanSound = async () => {
-    try {
-      if (soundRef.current) {
-        await soundRef.current.replayAsync();
-      }
-    } catch (error) {
-      console.error('Error playing sound:', error);
-    }
-  };
   
   // Camera permission hook
   const [permission, requestPermission] = useCameraPermissions();
@@ -170,9 +134,8 @@ export default function ScanScreen() {
       scanCooldownRef.current = false;
     }, 2000); // 2 second cooldown for same barcode
 
-    // Vibrate and play sound
+    // Vibrate
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    playScanSound();
 
     // Update last scanned
     setLastScanned(trimmedBarcode);
