@@ -287,11 +287,6 @@ app.delete('/api/scans/cleanup', authMiddleware, async (req, res) => {
   }
 });
 
-// Start server
-app.listen(config.PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${config.PORT}`);
-});
-
 // ============ PRODUCT/INVENTORY ROUTES ============
 
 // Check if product exists by barcode
@@ -526,4 +521,9 @@ app.get('/api/products/:barcode', authMiddleware, async (req, res) => {
     console.error('Get product error:', error);
     res.status(500).json({ message: 'Failed to get product' });
   }
+});
+
+// Start server
+app.listen(config.PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${config.PORT}`);
 });
