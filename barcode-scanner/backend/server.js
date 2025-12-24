@@ -6,6 +6,7 @@ const cron = require('node-cron');
 const config = require('./config');
 const User = require('./models/User');
 const Scan = require('./models/Scan');
+const Product = require('./models/Product');
 
 const app = express();
 
@@ -289,4 +290,240 @@ app.delete('/api/scans/cleanup', authMiddleware, async (req, res) => {
 // Start server
 app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${config.PORT}`);
+});
+
+// ============ PRODUCT/INVENTORY ROUTES ============
+
+// Check if product exists by barcode
+app.get('/api/products/check/:barcode', authMiddleware, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const product = await Product.findOne({ barcode: barcode.trim() });
+    
+    if (product) {
+      res.json({
+        success: true,
+        exists: true,
+        product: {
+          id: product._id,
+          barcode: product.barcode,
+          name: product.name,
+          currentStock: product.currentStock,
+          note: product.note,
+          createdAt: product.createdAt,
+          updatedAt: product.updatedAt
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        exists: false,
+        barcode: barcode.trim()
+      });
+    }
+  } catch (error) {
+    console.error('Check product error:', error);
+    res.status(500).json({ message: 'Failed to check product' });
+  }
+});
+
+// Create new product
+app.post('/api/products', authMiddleware, async (req, res) => {
+  try {
+    const { barcode, name, quantity, note } = req.body;
+    
+    if (!barcode || !name) {
+      return res.status(400).json({ message: 'Barcode and name are required' });
+    }
+    
+    // Check if product already exists
+    const existingProduct = await Product.findOne({ barcode: barcode.trim() });
+    if (existingProduct) {
+      return res.status(409).json({ message: 'Product with this barcode already exists' });
+    }
+    
+    const initialQuantity = parseInt(quantity) || 0;
+    
+    const product = new Product({
+      barcode: barcode.trim(),
+      name: name.trim(),
+      currentStock: initialQuantity,
+      note: note || '',
+      stockHistory: initialQuantity > 0 ? [{
+        quantity: initialQuantity,
+        type: 'add',
+        note: 'Initial stock',
+        addedBy: req.user._id,
+        addedByName: req.user.fullName
+      }] : [],
+      createdBy: req.user._id,
+      createdByName: req.user.fullName
+    });
+    
+    await product.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      product: {
+        id: product._id,
+        barcode: product.barcode,
+        name: product.name,
+        currentStock: product.currentStock,
+        note: product.note
+      }
+    });
+  } catch (error) {
+    console.error('Create product error:', error);
+    res.status(500).json({ message: 'Failed to create product' });
+  }
+});
+
+// Add stock to existing product
+app.post('/api/products/:barcode/add-stock', authMiddleware, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const { quantity, note } = req.body;
+    
+    const addQuantity = parseInt(quantity);
+    if (!addQuantity || addQuantity <= 0) {
+      return res.status(400).json({ message: 'Valid quantity is required' });
+    }
+    
+    const product = await Product.findOne({ barcode: barcode.trim() });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    product.currentStock += addQuantity;
+    product.stockHistory.push({
+      quantity: addQuantity,
+      type: 'add',
+      note: note || '',
+      addedBy: req.user._id,
+      addedByName: req.user.fullName
+    });
+    
+    await product.save();
+    
+    res.json({
+      success: true,
+      message: `Added ${addQuantity} to stock`,
+      product: {
+        id: product._id,
+        barcode: product.barcode,
+        name: product.name,
+        currentStock: product.currentStock
+      }
+    });
+  } catch (error) {
+    console.error('Add stock error:', error);
+    res.status(500).json({ message: 'Failed to add stock' });
+  }
+});
+
+// Remove stock from product
+app.post('/api/products/:barcode/remove-stock', authMiddleware, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const { quantity, note } = req.body;
+    
+    const removeQuantity = parseInt(quantity);
+    if (!removeQuantity || removeQuantity <= 0) {
+      return res.status(400).json({ message: 'Valid quantity is required' });
+    }
+    
+    const product = await Product.findOne({ barcode: barcode.trim() });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    if (product.currentStock < removeQuantity) {
+      return res.status(400).json({ message: 'Insufficient stock' });
+    }
+    
+    product.currentStock -= removeQuantity;
+    product.stockHistory.push({
+      quantity: removeQuantity,
+      type: 'remove',
+      note: note || '',
+      addedBy: req.user._id,
+      addedByName: req.user.fullName
+    });
+    
+    await product.save();
+    
+    res.json({
+      success: true,
+      message: `Removed ${removeQuantity} from stock`,
+      product: {
+        id: product._id,
+        barcode: product.barcode,
+        name: product.name,
+        currentStock: product.currentStock
+      }
+    });
+  } catch (error) {
+    console.error('Remove stock error:', error);
+    res.status(500).json({ message: 'Failed to remove stock' });
+  }
+});
+
+// Get all products
+app.get('/api/products', authMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * limit;
+    const search = req.query.search || '';
+    
+    const query = search ? {
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { barcode: { $regex: search, $options: 'i' } }
+      ]
+    } : {};
+    
+    const products = await Product.find(query)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .select('-stockHistory');
+    
+    const total = await Product.countDocuments(query);
+    
+    res.json({
+      success: true,
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get products error:', error);
+    res.status(500).json({ message: 'Failed to get products' });
+  }
+});
+
+// Get single product with history
+app.get('/api/products/:barcode', authMiddleware, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const product = await Product.findOne({ barcode: barcode.trim() });
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    res.json({
+      success: true,
+      product
+    });
+  } catch (error) {
+    console.error('Get product error:', error);
+    res.status(500).json({ message: 'Failed to get product' });
+  }
 });
