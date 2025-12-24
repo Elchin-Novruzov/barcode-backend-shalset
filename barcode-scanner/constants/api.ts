@@ -15,4 +15,9 @@ export const API_ENDPOINTS = {
   MY_SCANS: `${API_URL}/api/scans/my`,
   ALL_SCANS: `${API_URL}/api/scans/all`,
   SCAN_STATS: `${API_URL}/api/scans/stats`,
+  // Product/Inventory endpoints
+  PRODUCTS: `${API_URL}/api/products`,
+  CHECK_PRODUCT: (barcode: string) => `${API_URL}/api/products/check/${barcode}`,
+  ADD_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/add-stock`,
+  REMOVE_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/remove-stock`,
 };

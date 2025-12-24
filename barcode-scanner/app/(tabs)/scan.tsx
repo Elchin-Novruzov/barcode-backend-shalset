@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   FlatList,
   Platform,
+  Modal,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
 } from 'react-native';
 // Camera import
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -27,7 +31,7 @@ const SCAN_VALIDATION_WINDOW_MS = 500; // Time window for consistent reads
 type ScanMode = 'camera' | 'keyboard';
 
 // Set to true to enable camera scanning, false to disable
-const CAMERA_ENABLED = false;
+const CAMERA_ENABLED = true;
 
 export default function ScanScreen() {
   const colorScheme = useColorScheme();
@@ -54,6 +58,17 @@ export default function ScanScreen() {
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [scanReady, setScanReady] = useState(false); // Controls scan delay
   const [validationProgress, setValidationProgress] = useState(0); // Show validation progress
+  
+    // Warehouse Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalLoading, setModalLoading] = useState(false);
+    const [scannedBarcode, setScannedBarcode] = useState('');
+    const [existingProduct, setExistingProduct] = useState<any>(null);
+    const [productName, setProductName] = useState('');
+    const [quantity, setQuantity] = useState('');
+    const [note, setNote] = useState('');
+    const [modalError, setModalError] = useState('');
+    const [stockAction, setStockAction] = useState<'add' | 'remove'>('add');
 
   // Start scan delay timer when entering camera mode
   useEffect(() => {
@@ -109,8 +124,194 @@ export default function ScanScreen() {
       }
     } catch (error) {
       console.error('Error saving scan:', error);
-      // Don't block the UI - scan is still recorded locally
     }
+  };
+
+  // Check if product exists and show modal
+  const checkProductAndShowModal = async (barcode: string) => {
+    setScannedBarcode(barcode);
+    setModalLoading(true);
+    setModalError('');
+    setProductName('');
+    setQuantity('');
+    setNote('');
+    setExistingProduct(null);
+    setModalVisible(true);
+
+    try {
+      const url = API_ENDPOINTS.CHECK_PRODUCT(barcode);
+      console.log('Checking product at:', url);
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      const text = await response.text();
+      console.log('Response status:', response.status);
+      console.log('Response text:', text.substring(0, 200));
+      
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', text.substring(0, 500));
+        setModalError('Server returned invalid response. Please try again.');
+        return;
+      }
+
+      if (data.exists) {
+        setExistingProduct(data.product);
+      }
+    } catch (error) {
+      console.error('Error checking product:', error);
+      setModalError('Failed to check product. Check your connection.');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Create new product
+  const handleCreateProduct = async () => {
+    if (!productName.trim()) {
+      setModalError('Product name is required');
+      return;
+    }
+    if (!quantity || parseInt(quantity) <= 0) {
+      setModalError('Valid quantity is required');
+      return;
+    }
+
+    setModalLoading(true);
+    setModalError('');
+
+    try {
+      const response = await fetch(API_ENDPOINTS.PRODUCTS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          barcode: scannedBarcode,
+          name: productName.trim(),
+          quantity: parseInt(quantity),
+          note: note.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        closeModal();
+      } else {
+        setModalError(data.message || 'Failed to create product');
+      }
+    } catch (error) {
+      setModalError('Failed to create product');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Add stock to existing product
+  const handleAddStock = async () => {
+    if (!quantity || parseInt(quantity) <= 0) {
+      setModalError('Valid quantity is required');
+      return;
+    }
+
+    setModalLoading(true);
+    setModalError('');
+
+    try {
+      const response = await fetch(API_ENDPOINTS.ADD_STOCK(scannedBarcode), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          quantity: parseInt(quantity),
+          note: note.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        closeModal();
+      } else {
+        setModalError(data.message || 'Failed to add stock');
+      }
+    } catch (error) {
+      setModalError('Failed to add stock');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Remove stock from existing product
+  const handleRemoveStock = async () => {
+    if (!quantity || parseInt(quantity) <= 0) {
+      setModalError('Valid quantity is required');
+      return;
+    }
+
+    const qty = parseInt(quantity);
+    if (existingProduct && qty > existingProduct.currentStock) {
+      setModalError(`Cannot remove ${qty}. Only ${existingProduct.currentStock} in stock.`);
+      return;
+    }
+
+    setModalLoading(true);
+    setModalError('');
+
+    try {
+      const response = await fetch(API_ENDPOINTS.REMOVE_STOCK(scannedBarcode), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          quantity: qty,
+          note: note.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        closeModal();
+      } else {
+        setModalError(data.message || 'Failed to remove stock');
+      }
+    } catch (error) {
+      setModalError('Failed to remove stock');
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  // Handle stock action (add or remove)
+  const handleStockAction = () => {
+    if (stockAction === 'add') {
+      handleAddStock();
+    } else {
+      handleRemoveStock();
+    }
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setScannedBarcode('');
+    setExistingProduct(null);
+    setProductName('');
+    setQuantity('');
+    setNote('');
+    setModalError('');
+    setStockAction('add');
+    if (scanMode === 'keyboard') focusInput();
   };
 
   const completeScan = (barcode: string) => {
@@ -151,6 +352,9 @@ export default function ScanScreen() {
 
     // Save to database (async, non-blocking)
     saveScanToDatabase(trimmedBarcode, scanMode);
+
+    // Check product and show warehouse modal
+    checkProductAndShowModal(trimmedBarcode);
 
     // Refocus input for keyboard mode
     if (scanMode === 'keyboard') {
@@ -512,6 +716,209 @@ export default function ScanScreen() {
           />
         )}
       </View>
+
+      {/* Warehouse Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeModal}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1a1a1a' : '#fff' }]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Header */}
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? '#fff' : '#000' }]}>
+                  {existingProduct ? 'Add to Stock' : 'New Product'}
+                </Text>
+                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Barcode Display */}
+              <View style={[styles.barcodeDisplay, { backgroundColor: isDark ? '#333' : '#f0f0f0' }]}>
+                <Text style={[styles.barcodeLabel, { color: isDark ? '#aaa' : '#666' }]}>Barcode</Text>
+                <Text style={[styles.barcodeValue, { color: isDark ? '#fff' : '#000' }]}>{scannedBarcode}</Text>
+              </View>
+
+              {modalLoading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#2196F3" />
+                  <Text style={[styles.loadingText, { color: isDark ? '#aaa' : '#666' }]}>
+                    Checking product...
+                  </Text>
+                </View>
+              ) : existingProduct ? (
+                /* Existing Product - Manage Stock */
+                <View>
+                  <View style={[styles.productInfo, { backgroundColor: isDark ? '#333' : '#e8f5e9' }]}>
+                    <Text style={[styles.productName, { color: isDark ? '#fff' : '#000' }]}>
+                      {existingProduct.name}
+                    </Text>
+                    <Text style={[styles.currentStock, { color: isDark ? '#4CAF50' : '#2e7d32' }]}>
+                      Current Stock: {existingProduct.currentStock}
+                    </Text>
+                    {existingProduct.note ? (
+                      <Text style={[styles.productNote, { color: isDark ? '#aaa' : '#666' }]}>
+                        Note: {existingProduct.note}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {/* Action Toggle */}
+                  <View style={styles.actionToggle}>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionToggleButton,
+                        stockAction === 'add' && styles.actionToggleButtonActive,
+                        { backgroundColor: stockAction === 'add' ? '#4CAF50' : (isDark ? '#333' : '#e0e0e0') }
+                      ]}
+                      onPress={() => { setStockAction('add'); setModalError(''); }}
+                    >
+                      <Text style={[
+                        styles.actionToggleText,
+                        { color: stockAction === 'add' ? '#fff' : (isDark ? '#aaa' : '#666') }
+                      ]}>+ Add Stock</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.actionToggleButton,
+                        stockAction === 'remove' && styles.actionToggleButtonActive,
+                        { backgroundColor: stockAction === 'remove' ? '#f44336' : (isDark ? '#333' : '#e0e0e0') }
+                      ]}
+                      onPress={() => { setStockAction('remove'); setModalError(''); }}
+                    >
+                      <Text style={[
+                        styles.actionToggleText,
+                        { color: stockAction === 'remove' ? '#fff' : (isDark ? '#aaa' : '#666') }
+                      ]}>- Remove Stock</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Quantity to {stockAction === 'add' ? 'Add' : 'Remove'} *
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000',
+                      borderColor: stockAction === 'remove' ? '#f44336' : '#4CAF50',
+                      borderWidth: 2
+                    }]}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder={`Enter quantity to ${stockAction}`}
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Note (Optional) - Will be added to history
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.noteInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder={stockAction === 'add' ? 'e.g., Received from supplier' : 'e.g., Sold to customer'}
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    multiline
+                  />
+                </View>
+              ) : (
+                /* New Product Form */
+                <View>
+                  <View style={[styles.newProductBadge, { backgroundColor: '#2196F3' }]}>
+                    <Text style={styles.newProductBadgeText}>New Product</Text>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Product Name *
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={productName}
+                    onChangeText={setProductName}
+                    placeholder="Enter product name"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Initial Stock Quantity *
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={quantity}
+                    onChangeText={setQuantity}
+                    placeholder="Enter quantity"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Note (Optional)
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.noteInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="Add a note"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                    multiline
+                  />
+                </View>
+              )}
+
+              {/* Error Message */}
+              {modalError ? (
+                <Text style={styles.errorText}>{modalError}</Text>
+              ) : null}
+
+              {/* Action Buttons */}
+              {!modalLoading && (
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={closeModal}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton, 
+                      styles.submitButton,
+                      existingProduct && stockAction === 'remove' && { backgroundColor: '#f44336' }
+                    ]}
+                    onPress={existingProduct ? handleStockAction : handleCreateProduct}
+                  >
+                    <Text style={styles.submitButtonText}>
+                      {existingProduct 
+                        ? (stockAction === 'add' ? '+ Add Stock' : '- Remove Stock')
+                        : 'Create Product'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -708,5 +1115,153 @@ const styles = StyleSheet.create({
   modeButtonText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#999',
+  },
+  barcodeDisplay: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  barcodeLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  barcodeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  productInfo: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  productName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  currentStock: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  productNote: {
+    fontSize: 14,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  actionToggle: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  actionToggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  actionToggleButtonActive: {
+    // Active state handled by inline styles
+  },
+  actionToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  newProductBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  newProductBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  modalInput: {
+    padding: 14,
+    borderRadius: 8,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  noteInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  errorText: {
+    color: '#f44336',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#666',
+  },
+  cancelButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
