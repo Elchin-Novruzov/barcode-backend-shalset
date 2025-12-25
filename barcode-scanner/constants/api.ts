@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   LOGIN: `${API_URL}/api/auth/login`,
   ME: `${API_URL}/api/auth/me`,
   LOGOUT: `${API_URL}/api/auth/logout`,
+  UPDATE_PROFILE: `${API_URL}/api/auth/profile`,
   HEALTH: `${API_URL}/api/health`,
   // Scan endpoints
   SCANS: `${API_URL}/api/scans`,
@@ -18,8 +19,12 @@ export const API_ENDPOINTS = {
   // Product/Inventory endpoints
   PRODUCTS: `${API_URL}/api/products`,
   CHECK_PRODUCT: (barcode: string) => `${API_URL}/api/products/check/${barcode}`,
+  GET_PRODUCT: (barcode: string) => `${API_URL}/api/products/${barcode}`,
   ADD_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/add-stock`,
   REMOVE_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/remove-stock`,
   // Category endpoints
   CATEGORIES: `${API_URL}/api/categories`,
+  // Stats endpoints
+  STATS_DASHBOARD: `${API_URL}/api/stats/dashboard`,
+  STATS_CATEGORY_DISTRIBUTION: `${API_URL}/api/stats/category-distribution`,
 };

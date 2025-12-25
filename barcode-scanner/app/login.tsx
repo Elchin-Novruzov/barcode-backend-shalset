@@ -10,17 +10,19 @@ import {
   Platform,
   Alert,
   Image,
+  StatusBar,
+  SafeAreaView,
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppColors } from '@/constants/theme';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -42,153 +44,191 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, isDark && styles.containerDark]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Image 
-            source={require('@/assets/images/logo-shalset.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={[styles.title, isDark && styles.textDark]}>Shalset Scanner</Text>
-          <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>Sign in to continue</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, isDark && styles.textDark]}>Username</Text>
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder="Enter username"
-              placeholderTextColor={isDark ? '#888' : '#999'}
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={AppColors.background} />
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.content}>
+          {/* Logo */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoWrapper}>
+              <Image 
+                source={require('@/assets/images/logo-shalset.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, isDark && styles.textDark]}>Password</Text>
-            <TextInput
-              style={[styles.input, isDark && styles.inputDark]}
-              placeholder="Enter password"
-              placeholderTextColor={isDark ? '#888' : '#999'}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-              onSubmitEditing={handleLogin}
-            />
+          {/* Title */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Shalset Scanner</Text>
+            <Text style={styles.subtitle}>Sign in to your account</Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <IconSymbol size={20} name="person.fill" color={AppColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Username"
+                  placeholderTextColor={AppColors.textMuted}
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                />
+              </View>
+            </View>
 
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, isDark && styles.subtitleDark]}>
-            Demo accounts:
-          </Text>
-          <Text style={[styles.footerText, isDark && styles.subtitleDark]}>
-            admin / admin123
-          </Text>
-          <Text style={[styles.footerText, isDark && styles.subtitleDark]}>
-            user1 / user123
-          </Text>
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <IconSymbol size={20} name="lock.fill" color={AppColors.textMuted} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor={AppColors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!isLoading}
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <IconSymbol 
+                    size={20} 
+                    name={showPassword ? "eye.slash.fill" : "eye.fill"} 
+                    color={AppColors.textMuted} 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Demo Accounts */}
+          <View style={styles.footer}>
+            <Text style={styles.footerLabel}>Demo Accounts</Text>
+            <View style={styles.demoAccounts}>
+              <View style={styles.demoAccount}>
+                <Text style={styles.demoText}>admin</Text>
+                <Text style={styles.demoDivider}>•</Text>
+                <Text style={styles.demoText}>admin123</Text>
+              </View>
+              <View style={styles.demoAccount}>
+                <Text style={styles.demoText}>user1</Text>
+                <Text style={styles.demoDivider}>•</Text>
+                <Text style={styles.demoText}>user123</Text>
+              </View>
+            </View>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AppColors.background,
   },
-  containerDark: {
-    backgroundColor: '#121212',
+  keyboardView: {
+    flex: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  header: {
+  logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
+  },
+  logoWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    backgroundColor: AppColors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 20,
+    width: 70,
+    height: 70,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: AppColors.textPrimary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-  },
-  subtitleDark: {
-    color: '#aaa',
-  },
-  textDark: {
-    color: '#fff',
+    color: AppColors.textSecondary,
   },
   form: {
     gap: 16,
   },
   inputContainer: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 56,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border,
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    flex: 1,
     fontSize: 16,
-    color: '#333',
-  },
-  inputDark: {
-    backgroundColor: '#1e1e1e',
-    borderColor: '#333',
-    color: '#fff',
+    color: AppColors.textPrimary,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: AppColors.primary,
+    borderRadius: 14,
+    height: 56,
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    marginTop: 8,
+    shadowColor: AppColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -201,10 +241,32 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 48,
     alignItems: 'center',
-    gap: 4,
   },
-  footerText: {
-    fontSize: 12,
-    color: '#888',
+  footerLabel: {
+    fontSize: 13,
+    color: AppColors.textMuted,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  demoAccounts: {
+    gap: 8,
+  },
+  demoAccount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: AppColors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  demoText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    fontFamily: 'monospace',
+  },
+  demoDivider: {
+    color: AppColors.textMuted,
   },
 });

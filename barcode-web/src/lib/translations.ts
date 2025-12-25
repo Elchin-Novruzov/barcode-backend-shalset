@@ -66,6 +66,9 @@ export const translations = {
     // Product Modal
     editProduct: 'Edit Product',
     edit: 'Edit',
+    viewDetails: 'View Details',
+    productDetails: 'Product Details',
+    backToDashboard: 'Back to Dashboard',
     productName: 'Product Name',
     buyingPrice: 'Buying Price',
     sellingPrice: 'Selling Price',
@@ -245,6 +248,9 @@ export const translations = {
     // Product Modal
     editProduct: 'Məhsulu Redaktə Et',
     edit: 'Redaktə',
+    viewDetails: 'Detallara Bax',
+    productDetails: 'Məhsul Detalları',
+    backToDashboard: 'İdarə Panelə Qayıt',
     productName: 'Məhsul Adı',
     buyingPrice: 'Alış Qiyməti',
     sellingPrice: 'Satış Qiyməti',
@@ -424,6 +430,9 @@ export const translations = {
     // Product Modal
     editProduct: 'Редактировать Товар',
     edit: 'Редактировать',
+    viewDetails: 'Подробнее',
+    productDetails: 'Детали Товара',
+    backToDashboard: 'Назад к Панели',
     productName: 'Название Товара',
     buyingPrice: 'Цена Покупки',
     sellingPrice: 'Цена Продажи',

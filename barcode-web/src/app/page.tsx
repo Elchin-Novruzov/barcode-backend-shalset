@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getAllScans, Scan, PaginationInfo, getAllProducts, Product, getProductByBarcode, addStock, removeStock, updateProduct, getCategories, createCategory, updateCategory as updateCategoryApi, deleteCategory, Category, getCategoryDistribution, getInventoryValue, getDashboardStats, CategoryDistributionItem, InventoryValueItem, DashboardStats, getAllUsers, createUser, updateUser, deleteUser, UserAccount } from '@/lib/api';
 import { translations, Language, languageNames, languageFlags } from '@/lib/translations';
@@ -33,6 +34,7 @@ ChartJS.register(
 type PageType = 'dashboard' | 'inventory' | 'history' | 'categories' | 'users';
 
 export default function Home() {
+  const router = useRouter();
   const { user, token, isLoading, login, logout } = useAuth();
   const [activePage, setActivePage] = useState<PageType>('dashboard');
   
@@ -990,7 +992,11 @@ export default function Home() {
                   </div>
                   <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
                     {products.filter(p => p.currentStock <= 10).slice(0, 5).map(product => (
-                      <div key={product._id} className="flex items-center justify-between bg-[#1a1f37] p-4 rounded-xl">
+                      <div 
+                        key={product._id} 
+                        className="flex items-center justify-between bg-[#1a1f37] p-4 rounded-xl cursor-pointer hover:bg-[#2d3561] transition"
+                        onClick={() => openProductModal(product)}
+                      >
                         <div className="flex items-center gap-3">
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover" />
@@ -1549,9 +1555,17 @@ export default function Home() {
               </h3>
               <div className="flex items-center gap-2">
                 {!isEditing && (
-                  <button onClick={startEditing} className="bg-cyan-500 hover:bg-cyan-600 text-white px-3 py-1 rounded-lg text-sm transition">
-                    {t.edit}
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => router.push(`/product/${selectedProduct.barcode}`)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm transition"
+                    >
+                      {t.viewDetails}
+                    </button>
+                    <button onClick={startEditing} className="bg-cyan-500 hover:bg-cyan-600 text-white px-3 py-1 rounded-lg text-sm transition">
+                      {t.edit}
+                    </button>
+                  </>
                 )}
                 <button onClick={closeProductModal} className="text-gray-400 hover:text-white text-2xl">&times;</button>
               </div>

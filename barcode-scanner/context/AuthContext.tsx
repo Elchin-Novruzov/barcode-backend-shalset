@@ -6,6 +6,8 @@ interface User {
   id: string;
   username: string;
   fullName: string;
+  role?: 'admin' | 'user';
+  profileImage?: string | null;
 }
 
 interface AuthContextType {
@@ -15,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +131,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(API_ENDPOINTS.ME, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+        await AsyncStorage.setItem(USER_DATA_KEY, JSON.stringify(data.user));
+      }
+    } catch (error) {
+      console.error('Refresh user error:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -137,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!token && !!user,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}

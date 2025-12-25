@@ -16,9 +16,9 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
+import { AppColors } from '@/constants/theme';
 import { API_ENDPOINTS } from '@/constants/api';
 import { useAuth } from '@/context/AuthContext';
 
@@ -37,6 +37,8 @@ export default function ScanScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { token } = useAuth();
+  const router = useRouter();
+  const { barcode: barcodeParam } = useLocalSearchParams<{ barcode?: string }>();
   
   const inputRef = useRef<TextInput>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,6 +109,16 @@ export default function ScanScreen() {
       };
     }, [])
   );
+
+  // Handle barcode from query parameter (from inventory + button)
+  useEffect(() => {
+    if (barcodeParam && token) {
+      // Clear the param to prevent re-triggering
+      router.setParams({ barcode: undefined });
+      // Show the product modal for this barcode
+      checkProductAndShowModal(barcodeParam);
+    }
+  }, [barcodeParam, token]);
 
   const focusInput = () => {
     setTimeout(() => {
@@ -556,7 +568,7 @@ export default function ScanScreen() {
           Camera permission is required to scan barcodes
         </Text>
         <TouchableOpacity
-          style={[styles.permissionButton, { backgroundColor: Colors[colorScheme ?? 'light'].tint }]}
+          style={[styles.permissionButton, { backgroundColor: AppColors.primary }]}
           onPress={requestPermission}
         >
           <Text style={styles.buttonText}>Grant Permission</Text>
@@ -565,7 +577,7 @@ export default function ScanScreen() {
           style={[styles.modeButton, { marginTop: 20 }]}
           onPress={toggleScanMode}
         >
-          <Text style={[styles.modeButtonText, { color: Colors[colorScheme ?? 'light'].tint }]}>
+          <Text style={[styles.modeButtonText, { color: AppColors.primary }]}>
             Use Keyboard Mode Instead
           </Text>
         </TouchableOpacity>
@@ -581,7 +593,7 @@ export default function ScanScreen() {
           <TouchableOpacity
             style={[
               styles.modeTab,
-              scanMode === 'camera' && { backgroundColor: Colors[colorScheme ?? 'light'].tint }
+              scanMode === 'camera' && { backgroundColor: AppColors.primary }
             ]}
             onPress={() => setScanMode('camera')}
           >
@@ -595,7 +607,7 @@ export default function ScanScreen() {
           <TouchableOpacity
             style={[
               styles.modeTab,
-              scanMode === 'keyboard' && { backgroundColor: Colors[colorScheme ?? 'light'].tint }
+              scanMode === 'keyboard' && { backgroundColor: AppColors.primary }
             ]}
             onPress={() => {
               setScanMode('keyboard');
@@ -711,7 +723,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={[
             styles.actionButton,
-            { backgroundColor: Colors[colorScheme ?? 'light'].tint },
+            { backgroundColor: AppColors.primary },
             !lastScanned && styles.buttonDisabled
           ]}
           onPress={handleCopyLastScan}
@@ -1110,6 +1122,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 12,
+    paddingTop: 50,
   },
   centered: {
     justifyContent: 'center',
