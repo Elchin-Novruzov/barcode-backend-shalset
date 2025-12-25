@@ -537,6 +537,38 @@ app.get('/api/products/:barcode', authMiddleware, async (req, res) => {
   }
 });
 
+// Update product info
+app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
+  try {
+    const { barcode } = req.params;
+    const { name, note, buyingPrice, sellingPrice, boughtFrom, sellLocation } = req.body;
+    
+    const product = await Product.findOne({ barcode: barcode.trim() });
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Update fields if provided
+    if (name !== undefined) product.name = name.trim();
+    if (note !== undefined) product.note = note.trim();
+    if (buyingPrice !== undefined) product.buyingPrice = parseFloat(buyingPrice) || 0;
+    if (sellingPrice !== undefined) product.sellingPrice = parseFloat(sellingPrice) || 0;
+    if (boughtFrom !== undefined) product.boughtFrom = boughtFrom.trim();
+    if (sellLocation !== undefined) product.sellLocation = sellLocation.trim();
+    
+    await product.save();
+    
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      product
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ message: 'Failed to update product' });
+  }
+});
+
 // Start server
 app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${config.PORT}`);
