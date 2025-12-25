@@ -57,6 +57,15 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  category: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    default: null
+  },
+  categoryName: {
+    type: String,
+    default: ''
+  },
   stockHistory: [stockHistorySchema],
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 

@@ -7,6 +7,7 @@ const config = require('./config');
 const User = require('./models/User');
 const Scan = require('./models/Scan');
 const Product = require('./models/Product');
+const Category = require('./models/Category');
 
 const app = express();
 
@@ -326,7 +327,7 @@ app.get('/api/products/check/:barcode', authMiddleware, async (req, res) => {
 // Create new product
 app.post('/api/products', authMiddleware, async (req, res) => {
   try {
-    const { barcode, name, quantity, note, buyingPrice, sellingPrice, boughtFrom, sellLocation } = req.body;
+    const { barcode, name, quantity, note, buyingPrice, sellingPrice, boughtFrom, sellLocation, category } = req.body;
     
     if (!barcode || !name) {
       return res.status(400).json({ message: 'Barcode and name are required' });
@@ -340,6 +341,12 @@ app.post('/api/products', authMiddleware, async (req, res) => {
     
     const initialQuantity = parseInt(quantity) || 0;
     
+    // Get category info if provided
+    let categoryDoc = null;
+    if (category) {
+      categoryDoc = await Category.findById(category);
+    }
+    
     const product = new Product({
       barcode: barcode.trim(),
       name: name.trim(),
@@ -349,6 +356,8 @@ app.post('/api/products', authMiddleware, async (req, res) => {
       sellingPrice: parseFloat(sellingPrice) || 0,
       boughtFrom: boughtFrom?.trim() || '',
       sellLocation: sellLocation?.trim() || '',
+      category: categoryDoc ? categoryDoc._id : null,
+      categoryName: categoryDoc ? categoryDoc.name : '',
       stockHistory: initialQuantity > 0 ? [{
         quantity: initialQuantity,
         type: 'add',
@@ -374,7 +383,9 @@ app.post('/api/products', authMiddleware, async (req, res) => {
         buyingPrice: product.buyingPrice,
         sellingPrice: product.sellingPrice,
         boughtFrom: product.boughtFrom,
-        sellLocation: product.sellLocation
+        sellLocation: product.sellLocation,
+        category: product.category,
+        categoryName: product.categoryName
       }
     });
   } catch (error) {
@@ -486,13 +497,26 @@ app.get('/api/products', authMiddleware, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
+    const categoryFilter = req.query.category || '';
     
-    const query = search ? {
-      $or: [
+    let query = {};
+    
+    // Search filter
+    if (search) {
+      query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { barcode: { $regex: search, $options: 'i' } }
-      ]
-    } : {};
+      ];
+    }
+    
+    // Category filter
+    if (categoryFilter) {
+      if (categoryFilter === 'uncategorized') {
+        query.category = null;
+      } else {
+        query.category = categoryFilter;
+      }
+    }
     
     const products = await Product.find(query)
       .sort({ updatedAt: -1 })
@@ -542,7 +566,7 @@ app.get('/api/products/:barcode', authMiddleware, async (req, res) => {
 app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
   try {
     const { barcode } = req.params;
-    const { name, note, buyingPrice, sellingPrice, boughtFrom, sellLocation, imageUrl } = req.body;
+    const { name, note, buyingPrice, sellingPrice, boughtFrom, sellLocation, imageUrl, category } = req.body;
     
     const product = await Product.findOne({ barcode: barcode.trim() });
     if (!product) {
@@ -558,6 +582,20 @@ app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
     if (sellLocation !== undefined) product.sellLocation = sellLocation.trim();
     if (imageUrl !== undefined) product.imageUrl = imageUrl;
     
+    // Update category
+    if (category !== undefined) {
+      if (category === null || category === '') {
+        product.category = null;
+        product.categoryName = '';
+      } else {
+        const categoryDoc = await Category.findById(category);
+        if (categoryDoc) {
+          product.category = categoryDoc._id;
+          product.categoryName = categoryDoc.name;
+        }
+      }
+    }
+    
     await product.save();
     
     res.json({
@@ -568,6 +606,136 @@ app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Update product error:', error);
     res.status(500).json({ message: 'Failed to update product' });
+  }
+});
+
+// ============ CATEGORY ROUTES ============
+
+// Get all categories
+app.get('/api/categories', authMiddleware, async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ name: 1 });
+    res.json({
+      success: true,
+      categories
+    });
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ message: 'Failed to get categories' });
+  }
+});
+
+// Create new category
+app.post('/api/categories', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, color } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Category name is required' });
+    }
+    
+    // Check if category already exists
+    const existingCategory = await Category.findOne({ name: name.trim() });
+    if (existingCategory) {
+      return res.status(400).json({ message: 'Category already exists' });
+    }
+    
+    const category = new Category({
+      name: name.trim(),
+      description: description?.trim() || '',
+      color: color || '#3b82f6',
+      createdBy: req.user._id,
+      createdByName: req.user.fullName
+    });
+    
+    await category.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      category
+    });
+  } catch (error) {
+    console.error('Create category error:', error);
+    res.status(500).json({ message: 'Failed to create category' });
+  }
+});
+
+// Update category
+app.put('/api/categories/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, color } = req.body;
+    
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    
+    if (name !== undefined) {
+      // Check if new name conflicts with existing category
+      const existingCategory = await Category.findOne({ name: name.trim(), _id: { $ne: id } });
+      if (existingCategory) {
+        return res.status(400).json({ message: 'Category name already exists' });
+      }
+      category.name = name.trim();
+      
+      // Update categoryName in all products with this category
+      await Product.updateMany({ category: id }, { categoryName: name.trim() });
+    }
+    if (description !== undefined) category.description = description.trim();
+    if (color !== undefined) category.color = color;
+    
+    await category.save();
+    
+    res.json({
+      success: true,
+      message: 'Category updated successfully',
+      category
+    });
+  } catch (error) {
+    console.error('Update category error:', error);
+    res.status(500).json({ message: 'Failed to update category' });
+  }
+});
+
+// Delete category
+app.delete('/api/categories/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+    
+    // Remove category reference from all products
+    await Product.updateMany({ category: id }, { category: null, categoryName: '' });
+    
+    await Category.findByIdAndDelete(id);
+    
+    res.json({
+      success: true,
+      message: 'Category deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete category error:', error);
+    res.status(500).json({ message: 'Failed to delete category' });
+  }
+});
+
+// Get products count by category
+app.get('/api/categories/:id/products-count', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const count = await Product.countDocuments({ category: id });
+    res.json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    console.error('Get products count error:', error);
+    res.status(500).json({ message: 'Failed to get products count' });
   }
 });
 
