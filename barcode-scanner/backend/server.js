@@ -970,6 +970,12 @@ app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
 // Get inventory value over time for line chart
 app.get('/api/stats/inventory-value', authMiddleware, async (req, res) => {
   try {
+    // Get days parameter (default 30)
+    const days = parseInt(req.query.days) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+    
     // Get all products with stock history
     const products = await Product.find();
     
@@ -979,7 +985,10 @@ app.get('/api/stats/inventory-value', authMiddleware, async (req, res) => {
     // Process each product's stock history
     for (const product of products) {
       for (const history of product.stockHistory) {
-        const date = new Date(history.createdAt).toISOString().split('T')[0];
+        const historyDate = new Date(history.createdAt);
+        if (historyDate < startDate) continue;
+        
+        const date = historyDate.toISOString().split('T')[0];
         
         if (!dailyData.has(date)) {
           dailyData.set(date, { bought: 0, sold: 0 });

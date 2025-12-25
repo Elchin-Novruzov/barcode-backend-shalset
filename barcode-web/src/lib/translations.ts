@@ -149,6 +149,10 @@ export const translations = {
     totalSold: 'Total Sold',
     profit: 'Profit',
     noDataAvailable: 'No data available',
+    last7Days: 'Last 7 Days',
+    last30Days: 'Last 30 Days',
+    last90Days: 'Last 90 Days',
+    last365Days: 'Last 365 Days',
     
     // Dashboard Stats
     totalBuyValue: 'Inventory Cost',
@@ -157,6 +161,24 @@ export const translations = {
     basedOnBuyPrice: 'Based on buy price',
     basedOnSellPrice: 'Based on sell price',
     thisMonth: 'This month',
+    
+    // User Management
+    users: 'Users',
+    manageUsers: 'Manage Users',
+    createUser: 'Create User',
+    editUser: 'Edit User',
+    fullName: 'Full Name',
+    role: 'Role',
+    userRole: 'User',
+    lastLogin: 'Last Login',
+    never: 'Never',
+    noUsers: 'No users yet',
+    userCreated: 'User created successfully',
+    userUpdated: 'User updated successfully',
+    userDeleted: 'User deleted successfully',
+    confirmDeleteUser: 'Are you sure you want to delete this user?',
+    cannotDeleteSelf: 'Cannot delete your own account',
+    leaveBlankPassword: 'Leave blank to keep current password',
   },
   az: {
     // Login
@@ -306,6 +328,10 @@ export const translations = {
     totalSold: 'Ümumi Satış',
     profit: 'Mənfəət',
     noDataAvailable: 'Məlumat yoxdur',
+    last7Days: 'Son 7 Gün',
+    last30Days: 'Son 30 Gün',
+    last90Days: 'Son 90 Gün',
+    last365Days: 'Son 365 Gün',
     
     // Dashboard Stats
     totalBuyValue: 'İnventar Dəyəri',
@@ -314,6 +340,24 @@ export const translations = {
     basedOnBuyPrice: 'Alış qiymətinə görə',
     basedOnSellPrice: 'Satış qiymətinə görə',
     thisMonth: 'Bu ay',
+    
+    // User Management
+    users: 'İstifadəçilər',
+    manageUsers: 'İstifadəçiləri İdarə Et',
+    createUser: 'İstifadəçi Yarat',
+    editUser: 'İstifadəçini Redaktə Et',
+    fullName: 'Tam Ad',
+    role: 'Rol',
+    userRole: 'İstifadəçi',
+    lastLogin: 'Son Giriş',
+    never: 'Heç vaxt',
+    noUsers: 'Hələ istifadəçi yoxdur',
+    userCreated: 'İstifadəçi uğurla yaradıldı',
+    userUpdated: 'İstifadəçi uğurla yeniləndi',
+    userDeleted: 'İstifadəçi uğurla silindi',
+    confirmDeleteUser: 'Bu istifadəçini silmək istədiyinizə əminsiniz?',
+    cannotDeleteSelf: 'Öz hesabınızı silə bilməzsiniz',
+    leaveBlankPassword: 'Cari şifrəni saxlamaq üçün boş buraxın',
   },
   ru: {
     // Login
@@ -463,6 +507,10 @@ export const translations = {
     totalSold: 'Всего Продано',
     profit: 'Прибыль',
     noDataAvailable: 'Нет данных',
+    last7Days: 'Последние 7 дней',
+    last30Days: 'Последние 30 дней',
+    last90Days: 'Последние 90 дней',
+    last365Days: 'Последние 365 дней',
     
     // Dashboard Stats
     totalBuyValue: 'Стоимость Закупки',
@@ -471,6 +519,24 @@ export const translations = {
     basedOnBuyPrice: 'По цене закупки',
     basedOnSellPrice: 'По цене продажи',
     thisMonth: 'В этом месяце',
+    
+    // User Management
+    users: 'Пользователи',
+    manageUsers: 'Управление Пользователями',
+    createUser: 'Создать Пользователя',
+    editUser: 'Редактировать Пользователя',
+    fullName: 'Полное имя',
+    role: 'Роль',
+    userRole: 'Пользователь',
+    lastLogin: 'Последний вход',
+    never: 'Никогда',
+    noUsers: 'Пока нет пользователей',
+    userCreated: 'Пользователь успешно создан',
+    userUpdated: 'Пользователь успешно обновлен',
+    userDeleted: 'Пользователь успешно удален',
+    confirmDeleteUser: 'Вы уверены, что хотите удалить этого пользователя?',
+    cannotDeleteSelf: 'Невозможно удалить свой аккаунт',
+    leaveBlankPassword: 'Оставьте пустым для сохранения текущего пароля',
   }
 };
 

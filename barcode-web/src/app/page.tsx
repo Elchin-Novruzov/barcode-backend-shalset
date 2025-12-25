@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { getAllScans, Scan, PaginationInfo, getAllProducts, Product, getProductByBarcode, addStock, removeStock, updateProduct, getCategories, createCategory, updateCategory as updateCategoryApi, deleteCategory, Category, getCategoryDistribution, getInventoryValue, getDashboardStats, CategoryDistributionItem, InventoryValueItem, DashboardStats } from '@/lib/api';
+import { getAllScans, Scan, PaginationInfo, getAllProducts, Product, getProductByBarcode, addStock, removeStock, updateProduct, getCategories, createCategory, updateCategory as updateCategoryApi, deleteCategory, Category, getCategoryDistribution, getInventoryValue, getDashboardStats, CategoryDistributionItem, InventoryValueItem, DashboardStats, getAllUsers, createUser, updateUser, deleteUser, UserAccount } from '@/lib/api';
 import { translations, Language, languageNames, languageFlags } from '@/lib/translations';
 import {
   Chart as ChartJS,
@@ -15,6 +15,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { Pie, Line } from 'react-chartjs-2';
 
 ChartJS.register(
@@ -25,10 +26,11 @@ ChartJS.register(
   ArcElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  ChartDataLabels
 );
 
-type PageType = 'dashboard' | 'inventory' | 'history' | 'categories';
+type PageType = 'dashboard' | 'inventory' | 'history' | 'categories' | 'users';
 
 export default function Home() {
   const { user, token, isLoading, login, logout } = useAuth();
@@ -104,6 +106,19 @@ export default function Home() {
   // Chart data
   const [categoryDistribution, setCategoryDistribution] = useState<CategoryDistributionItem[]>([]);
   const [inventoryValue, setInventoryValue] = useState<InventoryValueItem[]>([]);
+  const [inventoryDays, setInventoryDays] = useState(30);
+  
+  // User Management state
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [newUserUsername, setNewUserUsername] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserFullName, setNewUserFullName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
+  const [userError, setUserError] = useState('');
+  const [userLoading, setUserLoading] = useState(false);
 
   const fetchScans = async (page = 1) => {
     if (!token) return;
@@ -160,12 +175,12 @@ export default function Home() {
     }
   };
   
-  const fetchChartData = async () => {
+  const fetchChartData = async (days = inventoryDays) => {
     if (!token) return;
     try {
       const [distData, valueData, dashStats] = await Promise.all([
         getCategoryDistribution(token),
-        getInventoryValue(token),
+        getInventoryValue(token, days),
         getDashboardStats(token)
       ]);
       setCategoryDistribution(distData);
@@ -175,6 +190,106 @@ export default function Home() {
       console.error('Failed to load chart data', err);
     }
   };
+  
+  const handleInventoryDaysChange = (days: number) => {
+    setInventoryDays(days);
+    if (token) {
+      getInventoryValue(token, days).then(data => setInventoryValue(data)).catch(console.error);
+    }
+  };
+  
+  const fetchUsers = async () => {
+    if (!token || user?.role !== 'admin') return;
+    setLoadingUsers(true);
+    try {
+      const data = await getAllUsers(token);
+      setUsers(data);
+    } catch (err) {
+      console.error('Failed to load users', err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+  
+  const handleCreateUser = async () => {
+    if (!token) return;
+    if (!newUserUsername.trim() || !newUserFullName.trim()) {
+      setUserError('Username and full name are required');
+      return;
+    }
+    if (!editingUser && !newUserPassword.trim()) {
+      setUserError('Password is required');
+      return;
+    }
+    setUserLoading(true);
+    setUserError('');
+    try {
+      if (editingUser) {
+        const updateData: { username?: string; fullName?: string; role?: 'admin' | 'user'; password?: string } = {
+          username: newUserUsername,
+          fullName: newUserFullName,
+          role: newUserRole
+        };
+        if (newUserPassword.trim()) {
+          updateData.password = newUserPassword;
+        }
+        await updateUser(token, editingUser._id, updateData);
+      } else {
+        await createUser(token, {
+          username: newUserUsername,
+          password: newUserPassword,
+          fullName: newUserFullName,
+          role: newUserRole
+        });
+      }
+      setShowUserForm(false);
+      setEditingUser(null);
+      setNewUserUsername('');
+      setNewUserPassword('');
+      setNewUserFullName('');
+      setNewUserRole('user');
+      fetchUsers();
+    } catch (err) {
+      setUserError(err instanceof Error ? err.message : 'Failed to save user');
+    } finally {
+      setUserLoading(false);
+    }
+  };
+  
+  const handleDeleteUser = async (userId: string) => {
+    if (!token) return;
+    if (userId === user?.id) {
+      alert(t.cannotDeleteSelf);
+      return;
+    }
+    if (!confirm(t.confirmDeleteUser)) return;
+    try {
+      await deleteUser(token, userId);
+      fetchUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete user');
+    }
+  };
+  
+  const openEditUser = (userToEdit: UserAccount) => {
+    setEditingUser(userToEdit);
+    setNewUserUsername(userToEdit.username);
+    setNewUserFullName(userToEdit.fullName);
+    setNewUserRole(userToEdit.role);
+    setNewUserPassword('');
+    setUserError('');
+    setShowUserForm(true);
+  };
+  
+  const openNewUserForm = () => {
+    setEditingUser(null);
+    setNewUserUsername('');
+    setNewUserPassword('');
+    setNewUserFullName('');
+    setNewUserRole('user');
+    setUserError('');
+    setShowUserForm(true);
+  };
 
   useEffect(() => {
     if (token) {
@@ -182,8 +297,11 @@ export default function Home() {
       fetchProducts();
       fetchCategories();
       fetchChartData();
+      if (user?.role === 'admin') {
+        fetchUsers();
+      }
     }
-  }, [token]);
+  }, [token, user?.role]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -548,6 +666,23 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
           </button>
+          
+          {/* Users - Admin only */}
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setActivePage('users')}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center transition ${
+                activePage === 'users' 
+                  ? 'bg-cyan-500/20 text-cyan-400' 
+                  : 'text-gray-400 hover:bg-[#2d3561] hover:text-white'
+              }`}
+              title={t.users}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </button>
+          )}
         </nav>
         
         {/* Logout */}
@@ -615,7 +750,7 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-white text-sm font-medium">{user.fullName}</p>
-                <p className="text-gray-400 text-xs">{t.admin}</p>
+                <p className="text-gray-400 text-xs">{user.role === 'admin' ? t.admin : t.userRole}</p>
               </div>
             </div>
           </div>
@@ -689,7 +824,7 @@ export default function Home() {
                 <div className="bg-[#232a4d] rounded-2xl border border-[#2d3561] p-6">
                   <h3 className="text-lg font-semibold text-white mb-4">{t.categoryDistribution}</h3>
                   {categoryDistribution.length > 0 ? (
-                    <div className="h-64 flex items-center justify-center">
+                    <div className="h-72 flex items-center justify-center">
                       <Pie
                         data={{
                           labels: categoryDistribution.map(d => d.name),
@@ -697,27 +832,52 @@ export default function Home() {
                             data: categoryDistribution.map(d => d.count),
                             backgroundColor: categoryDistribution.map(d => d.color),
                             borderColor: '#232a4d',
-                            borderWidth: 2,
+                            borderWidth: 3,
                           }]
                         }}
                         options={{
                           responsive: true,
                           maintainAspectRatio: false,
+                          layout: {
+                            padding: 30
+                          },
                           plugins: {
                             legend: {
-                              position: 'right',
-                              labels: {
-                                color: '#9ca3af',
-                                padding: 15,
-                                font: { size: 12 }
-                              }
+                              display: false
+                            },
+                            tooltip: {
+                              backgroundColor: '#1a1f37',
+                              titleColor: '#fff',
+                              bodyColor: '#9ca3af',
+                              borderColor: '#2d3561',
+                              borderWidth: 1,
+                              padding: 12,
+                              displayColors: true,
+                            },
+                            datalabels: {
+                              color: '#fff',
+                              font: {
+                                weight: 'bold' as const,
+                                size: 11
+                              },
+                              backgroundColor: (context: any) => {
+                                return context.dataset.backgroundColor[context.dataIndex];
+                              },
+                              borderRadius: 4,
+                              padding: { top: 4, bottom: 4, left: 8, right: 8 },
+                              anchor: 'end' as const,
+                              align: 'end' as const,
+                              offset: 10,
+                              formatter: (_value: any, context: any) => {
+                                return context.chart.data.labels[context.dataIndex];
+                              },
                             }
                           }
                         }}
                       />
                     </div>
                   ) : (
-                    <div className="h-64 flex items-center justify-center">
+                    <div className="h-72 flex items-center justify-center">
                       <p className="text-gray-400">{t.noDataAvailable}</p>
                     </div>
                   )}
@@ -725,7 +885,29 @@ export default function Home() {
                 
                 {/* Inventory Value Line Chart */}
                 <div className="bg-[#232a4d] rounded-2xl border border-[#2d3561] p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">{t.inventoryValue}</h3>
+                  <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+                    <h3 className="text-lg font-semibold text-white">{t.inventoryValue}</h3>
+                    <div className="flex gap-1">
+                      {[
+                        { days: 7, label: t.last7Days },
+                        { days: 30, label: t.last30Days },
+                        { days: 90, label: t.last90Days },
+                        { days: 365, label: t.last365Days },
+                      ].map(option => (
+                        <button
+                          key={option.days}
+                          onClick={() => handleInventoryDaysChange(option.days)}
+                          className={`px-3 py-1 text-xs rounded-lg transition ${
+                            inventoryDays === option.days
+                              ? 'bg-cyan-500 text-white'
+                              : 'bg-[#1a1f37] text-gray-400 hover:bg-[#2d3561]'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {inventoryValue.length > 0 ? (
                     <div className="h-64">
                       <Line
@@ -777,6 +959,9 @@ export default function Home() {
                                 color: '#9ca3af',
                                 padding: 15
                               }
+                            },
+                            datalabels: {
+                              display: false
                             }
                           }
                         }}
@@ -1188,6 +1373,165 @@ export default function Home() {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Users Page - Admin only */}
+          {activePage === 'users' && user?.role === 'admin' && (
+            <div className="space-y-6">
+              <div className="bg-[#232a4d] rounded-2xl border border-[#2d3561]">
+                <div className="px-6 py-4 border-b border-[#2d3561] flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-white">{t.manageUsers}</h2>
+                  <button
+                    onClick={openNewUserForm}
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg transition flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    {t.createUser}
+                  </button>
+                </div>
+                
+                {/* User Form */}
+                {showUserForm && (
+                  <div className="px-6 py-4 bg-[#1a1f37] border-b border-[#2d3561]">
+                    <h3 className="text-lg font-medium text-white mb-4">
+                      {editingUser ? t.editUser : t.createUser}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t.username}</label>
+                        <input
+                          type="text"
+                          value={newUserUsername}
+                          onChange={(e) => setNewUserUsername(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#232a4d] border border-[#2d3561] rounded-lg text-white"
+                          placeholder={t.username}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t.fullName}</label>
+                        <input
+                          type="text"
+                          value={newUserFullName}
+                          onChange={(e) => setNewUserFullName(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#232a4d] border border-[#2d3561] rounded-lg text-white"
+                          placeholder={t.fullName}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                          {t.password} {editingUser && <span className="text-gray-500 text-xs">({t.leaveBlankPassword})</span>}
+                        </label>
+                        <input
+                          type="password"
+                          value={newUserPassword}
+                          onChange={(e) => setNewUserPassword(e.target.value)}
+                          className="w-full px-4 py-2 bg-[#232a4d] border border-[#2d3561] rounded-lg text-white"
+                          placeholder={editingUser ? '••••••' : t.password}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t.role}</label>
+                        <select
+                          value={newUserRole}
+                          onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'user')}
+                          className="w-full px-4 py-2 bg-[#232a4d] border border-[#2d3561] rounded-lg text-white"
+                        >
+                          <option value="user">{t.userRole}</option>
+                          <option value="admin">{t.admin}</option>
+                        </select>
+                      </div>
+                    </div>
+                    {userError && (
+                      <p className="text-red-400 text-sm mt-2">{userError}</p>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleCreateUser}
+                        disabled={userLoading}
+                        className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+                      >
+                        {userLoading ? '...' : (editingUser ? t.save : t.createUser)}
+                      </button>
+                      <button
+                        onClick={() => { setShowUserForm(false); setEditingUser(null); }}
+                        className="bg-[#2d3561] hover:bg-[#3d4671] text-gray-300 px-4 py-2 rounded-lg transition"
+                      >
+                        {t.cancel}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Users List */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-[#1a1f37]">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">{t.username}</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">{t.fullName}</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">{t.role}</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">{t.lastLogin}</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2d3561]">
+                      {loadingUsers ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mx-auto"></div>
+                          </td>
+                        </tr>
+                      ) : users.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                            {t.noUsers}
+                          </td>
+                        </tr>
+                      ) : (
+                        users.map((u) => (
+                          <tr key={u._id} className="hover:bg-[#1a1f37] transition">
+                            <td className="px-6 py-4 text-white">{u.username}</td>
+                            <td className="px-6 py-4 text-white">{u.fullName}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                u.role === 'admin' 
+                                  ? 'bg-purple-500/20 text-purple-400' 
+                                  : 'bg-blue-500/20 text-blue-400'
+                              }`}>
+                                {u.role === 'admin' ? t.admin : t.userRole}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-400 text-sm">
+                              {u.lastLogin ? formatDate(u.lastLogin) : t.never}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => openEditUser(u)}
+                                  className="bg-[#2d3561] hover:bg-[#3d4671] text-gray-300 px-3 py-1 rounded-lg text-sm transition"
+                                >
+                                  {t.edit}
+                                </button>
+                                {u._id !== user?.id && (
+                                  <button
+                                    onClick={() => handleDeleteUser(u._id)}
+                                    className="bg-red-500/20 hover:bg-red-500/30 text-red-400 px-3 py-1 rounded-lg text-sm transition"
+                                  >
+                                    {t.delete}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

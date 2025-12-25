@@ -15,12 +15,14 @@ export const API_ENDPOINTS = {
   STATS_CATEGORY_DISTRIBUTION: `${API_URL}/api/stats/category-distribution`,
   STATS_INVENTORY_VALUE: `${API_URL}/api/stats/inventory-value`,
   STATS_DASHBOARD: `${API_URL}/api/stats/dashboard`,
+  USERS: `${API_URL}/api/users`,
 };
 
 export interface User {
   id: string;
   username: string;
   fullName: string;
+  role: 'admin' | 'user';
 }
 
 export interface Scan {
@@ -331,8 +333,8 @@ export async function getCategoryDistribution(token: string): Promise<CategoryDi
   return data.distribution;
 }
 
-export async function getInventoryValue(token: string): Promise<InventoryValueItem[]> {
-  const response = await fetch(API_ENDPOINTS.STATS_INVENTORY_VALUE, {
+export async function getInventoryValue(token: string, days = 30): Promise<InventoryValueItem[]> {
+  const response = await fetch(`${API_ENDPOINTS.STATS_INVENTORY_VALUE}?days=${days}`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   
@@ -355,4 +357,89 @@ export async function getDashboardStats(token: string): Promise<DashboardStats> 
   
   const data = await response.json();
   return data.stats;
+}
+
+// ============ USER MANAGEMENT API ============
+
+export interface UserAccount {
+  _id: string;
+  username: string;
+  fullName: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+  lastLogin: string | null;
+}
+
+export async function getAllUsers(token: string): Promise<UserAccount[]> {
+  const response = await fetch(API_ENDPOINTS.USERS, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to get users');
+  }
+  
+  const data = await response.json();
+  return data.users;
+}
+
+export async function createUser(token: string, userData: {
+  username: string;
+  password: string;
+  fullName: string;
+  role: 'admin' | 'user';
+}): Promise<UserAccount> {
+  const response = await fetch(API_ENDPOINTS.USERS, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(userData),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create user');
+  }
+  
+  const data = await response.json();
+  return data.user;
+}
+
+export async function updateUser(token: string, id: string, userData: {
+  username?: string;
+  password?: string;
+  fullName?: string;
+  role?: 'admin' | 'user';
+}): Promise<UserAccount> {
+  const response = await fetch(`${API_ENDPOINTS.USERS}/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(userData),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update user');
+  }
+  
+  const data = await response.json();
+  return data.user;
+}
+
+export async function deleteUser(token: string, id: string): Promise<void> {
+  const response = await fetch(`${API_ENDPOINTS.USERS}/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to delete user');
+  }
 }

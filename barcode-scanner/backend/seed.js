@@ -7,17 +7,20 @@ const mockUsers = [
   {
     username: 'admin',
     password: 'admin123',
-    fullName: 'Administrator'
+    fullName: 'Administrator',
+    role: 'admin'
   },
   {
     username: 'user1',
     password: 'user123',
-    fullName: 'John Doe'
+    fullName: 'John Doe',
+    role: 'user'
   },
   {
     username: 'user2',
     password: 'user123',
-    fullName: 'Jane Smith'
+    fullName: 'Jane Smith',
+    role: 'user'
   }
 ];
 
