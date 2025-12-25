@@ -132,9 +132,62 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
       id: req.user._id,
       username: req.user.username,
       fullName: req.user.fullName,
-      role: req.user.role
+      role: req.user.role,
+      profileImage: req.user.profileImage
     }
   });
+});
+
+// Update current user's profile
+app.put('/api/auth/profile', authMiddleware, async (req, res) => {
+  try {
+    const { fullName, currentPassword, newPassword, profileImage } = req.body;
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update full name if provided
+    if (fullName && fullName.trim()) {
+      user.fullName = fullName.trim();
+    }
+    
+    // Update profile image if provided
+    if (profileImage !== undefined) {
+      user.profileImage = profileImage;
+    }
+    
+    // Update password if provided
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required to change password' });
+      }
+      
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Current password is incorrect' });
+      }
+      
+      user.password = newPassword; // Will be hashed by pre-save hook
+    }
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        profileImage: user.profileImage
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
 });
 
 // Logout (optional - mainly for tracking)
