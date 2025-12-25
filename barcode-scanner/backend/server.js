@@ -739,6 +739,104 @@ app.get('/api/categories/:id/products-count', authMiddleware, async (req, res) =
   }
 });
 
+// ============ STATISTICS ROUTES ============
+
+// Get category distribution for pie chart
+app.get('/api/stats/category-distribution', authMiddleware, async (req, res) => {
+  try {
+    const categories = await Category.find();
+    const distribution = [];
+    
+    // Get count for each category
+    for (const category of categories) {
+      const count = await Product.countDocuments({ category: category._id });
+      if (count > 0) {
+        distribution.push({
+          name: category.name,
+          color: category.color,
+          count
+        });
+      }
+    }
+    
+    // Get uncategorized count
+    const uncategorizedCount = await Product.countDocuments({ category: null });
+    if (uncategorizedCount > 0) {
+      distribution.push({
+        name: 'Uncategorized',
+        color: '#6b7280',
+        count: uncategorizedCount
+      });
+    }
+    
+    res.json({
+      success: true,
+      distribution
+    });
+  } catch (error) {
+    console.error('Get category distribution error:', error);
+    res.status(500).json({ message: 'Failed to get category distribution' });
+  }
+});
+
+// Get inventory value over time for line chart
+app.get('/api/stats/inventory-value', authMiddleware, async (req, res) => {
+  try {
+    // Get all products with stock history
+    const products = await Product.find();
+    
+    // Create a map of daily values
+    const dailyData = new Map();
+    
+    // Process each product's stock history
+    for (const product of products) {
+      for (const history of product.stockHistory) {
+        const date = new Date(history.createdAt).toISOString().split('T')[0];
+        
+        if (!dailyData.has(date)) {
+          dailyData.set(date, { bought: 0, sold: 0 });
+        }
+        
+        const dayData = dailyData.get(date);
+        
+        if (history.type === 'add') {
+          // Bought items: quantity × buying price
+          dayData.bought += history.quantity * (product.buyingPrice || 0);
+        } else if (history.type === 'remove') {
+          // Sold items: quantity × selling price
+          dayData.sold += history.quantity * (product.sellingPrice || 0);
+        }
+      }
+    }
+    
+    // Convert to array and sort by date
+    const sortedDates = Array.from(dailyData.keys()).sort();
+    
+    // Calculate cumulative values
+    let cumulativeBought = 0;
+    let cumulativeSold = 0;
+    const chartData = sortedDates.map(date => {
+      const dayData = dailyData.get(date);
+      cumulativeBought += dayData.bought;
+      cumulativeSold += dayData.sold;
+      return {
+        date,
+        bought: Math.round(cumulativeBought * 100) / 100,
+        sold: Math.round(cumulativeSold * 100) / 100,
+        profit: Math.round((cumulativeSold - cumulativeBought) * 100) / 100
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: chartData
+    });
+  } catch (error) {
+    console.error('Get inventory value error:', error);
+    res.status(500).json({ message: 'Failed to get inventory value' });
+  }
+});
+
 // Start server
 app.listen(config.PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${config.PORT}`);
