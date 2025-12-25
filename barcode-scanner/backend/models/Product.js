@@ -53,6 +53,10 @@ const productSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  imageUrl: {
+    type: String,
+    default: ''
+  },
   stockHistory: [stockHistorySchema],
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 

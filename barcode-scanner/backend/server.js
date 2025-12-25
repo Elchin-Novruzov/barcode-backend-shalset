@@ -541,7 +541,7 @@ app.get('/api/products/:barcode', authMiddleware, async (req, res) => {
 app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
   try {
     const { barcode } = req.params;
-    const { name, note, buyingPrice, sellingPrice, boughtFrom, sellLocation } = req.body;
+    const { name, note, buyingPrice, sellingPrice, boughtFrom, sellLocation, imageUrl } = req.body;
     
     const product = await Product.findOne({ barcode: barcode.trim() });
     if (!product) {
@@ -555,6 +555,7 @@ app.put('/api/products/:barcode', authMiddleware, async (req, res) => {
     if (sellingPrice !== undefined) product.sellingPrice = parseFloat(sellingPrice) || 0;
     if (boughtFrom !== undefined) product.boughtFrom = boughtFrom.trim();
     if (sellLocation !== undefined) product.sellLocation = sellLocation.trim();
+    if (imageUrl !== undefined) product.imageUrl = imageUrl;
     
     await product.save();
     
