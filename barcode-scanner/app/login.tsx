@@ -49,11 +49,11 @@ export default function LoginScreen() {
       <View style={styles.content}>
         <View style={styles.header}>
           <Image 
-            source={require('@/assets/images/zohrab.png')} 
+            source={require('@/assets/images/logo-shalset.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={[styles.title, isDark && styles.textDark]}>Barcode Scanner</Text>
+          <Text style={[styles.title, isDark && styles.textDark]}>Shalset Scanner</Text>
           <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>Sign in to continue</Text>
         </View>
 

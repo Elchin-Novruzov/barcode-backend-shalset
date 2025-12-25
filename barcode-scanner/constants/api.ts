@@ -20,4 +20,6 @@ export const API_ENDPOINTS = {
   CHECK_PRODUCT: (barcode: string) => `${API_URL}/api/products/check/${barcode}`,
   ADD_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/add-stock`,
   REMOVE_STOCK: (barcode: string) => `${API_URL}/api/products/${barcode}/remove-stock`,
+  // Category endpoints
+  CATEGORIES: `${API_URL}/api/categories`,
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
@@ -51,8 +51,13 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.content}>
+        <Image 
+          source={require('@/assets/images/logo-shalset.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={[styles.title, { color: isDark ? '#fff' : '#000' }]}>
-          Barcode Scanner
+          Shalset Scanner
         </Text>
         <Text style={[styles.subtitle, { color: isDark ? '#aaa' : '#666' }]}>
           Scan barcodes using a keyboard wedge scanner
@@ -122,6 +127,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,

@@ -77,6 +77,9 @@ export default function ScanScreen() {
     // Stock action supplier/location fields (for existing products)
     const [stockSupplier, setStockSupplier] = useState('');
     const [stockLocation, setStockLocation] = useState('');
+    // Category selection
+    const [categories, setCategories] = useState<{_id: string; name: string; color: string}[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState('');
 
   // Start scan delay timer when entering camera mode
   useEffect(() => {
@@ -149,8 +152,22 @@ export default function ScanScreen() {
     setSellLocation('');
     setStockSupplier('');
     setStockLocation('');
+    setSelectedCategory('');
     setExistingProduct(null);
     setModalVisible(true);
+    
+    // Fetch categories
+    try {
+      const catResponse = await fetch(API_ENDPOINTS.CATEGORIES, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (catResponse.ok) {
+        const catData = await catResponse.json();
+        setCategories(catData.categories || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
 
     try {
       const url = API_ENDPOINTS.CHECK_PRODUCT(barcode);
@@ -214,6 +231,7 @@ export default function ScanScreen() {
           sellingPrice: parseFloat(sellingPrice) || 0,
           boughtFrom: boughtFrom.trim(),
           sellLocation: sellLocation.trim(),
+          category: selectedCategory || null,
         }),
       });
 
@@ -337,6 +355,7 @@ export default function ScanScreen() {
     setSellLocation('');
     setStockSupplier('');
     setStockLocation('');
+    setSelectedCategory('');
     if (scanMode === 'keyboard') focusInput();
   };
 
@@ -996,6 +1015,42 @@ export default function ScanScreen() {
                     placeholderTextColor={isDark ? '#666' : '#999'}
                   />
 
+                  {/* Category Selection */}
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Category
+                  </Text>
+                  <View style={styles.categoryContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.categoryButton,
+                        !selectedCategory && styles.categoryButtonActive,
+                        { backgroundColor: !selectedCategory ? '#2196F3' : (isDark ? '#333' : '#e0e0e0') }
+                      ]}
+                      onPress={() => setSelectedCategory('')}
+                    >
+                      <Text style={[
+                        styles.categoryButtonText,
+                        { color: !selectedCategory ? '#fff' : (isDark ? '#aaa' : '#666') }
+                      ]}>None</Text>
+                    </TouchableOpacity>
+                    {categories.map(cat => (
+                      <TouchableOpacity
+                        key={cat._id}
+                        style={[
+                          styles.categoryButton,
+                          selectedCategory === cat._id && styles.categoryButtonActive,
+                          { backgroundColor: selectedCategory === cat._id ? cat.color : (isDark ? '#333' : '#e0e0e0') }
+                        ]}
+                        onPress={() => setSelectedCategory(cat._id)}
+                      >
+                        <Text style={[
+                          styles.categoryButtonText,
+                          { color: selectedCategory === cat._id ? '#fff' : (isDark ? '#aaa' : '#666') }
+                        ]}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                   <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
                     Note (Optional)
                   </Text>
@@ -1398,5 +1453,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  categoryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  categoryButtonActive: {
+    borderWidth: 0,
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
