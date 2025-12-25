@@ -779,6 +779,58 @@ app.get('/api/stats/category-distribution', authMiddleware, async (req, res) => 
   }
 });
 
+// Get dashboard stats
+app.get('/api/stats/dashboard', authMiddleware, async (req, res) => {
+  try {
+    const products = await Product.find();
+    
+    // Calculate totals
+    let totalProducts = products.length;
+    let totalBuyValue = 0;
+    let totalSellValue = 0;
+    
+    for (const product of products) {
+      totalBuyValue += (product.currentStock || 0) * (product.buyingPrice || 0);
+      totalSellValue += (product.currentStock || 0) * (product.sellingPrice || 0);
+    }
+    
+    // Calculate monthly profit (from stock history this month)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    let monthlyBought = 0;
+    let monthlySold = 0;
+    
+    for (const product of products) {
+      for (const history of product.stockHistory) {
+        if (new Date(history.createdAt) >= startOfMonth) {
+          if (history.type === 'add') {
+            monthlyBought += history.quantity * (product.buyingPrice || 0);
+          } else if (history.type === 'remove') {
+            monthlySold += history.quantity * (product.sellingPrice || 0);
+          }
+        }
+      }
+    }
+    
+    const monthlyProfit = monthlySold - monthlyBought;
+    
+    res.json({
+      success: true,
+      stats: {
+        totalProducts,
+        totalBuyValue: Math.round(totalBuyValue * 100) / 100,
+        totalSellValue: Math.round(totalSellValue * 100) / 100,
+        monthlyProfit: Math.round(monthlyProfit * 100) / 100
+      }
+    });
+  } catch (error) {
+    console.error('Get dashboard stats error:', error);
+    res.status(500).json({ message: 'Failed to get dashboard stats' });
+  }
+});
+
 // Get inventory value over time for line chart
 app.get('/api/stats/inventory-value', authMiddleware, async (req, res) => {
   try {
