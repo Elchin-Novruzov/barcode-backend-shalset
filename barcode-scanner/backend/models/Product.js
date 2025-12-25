@@ -4,6 +4,8 @@ const stockHistorySchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
   type: { type: String, enum: ['add', 'remove'], required: true },
   note: { type: String, default: '' },
+  supplier: { type: String, default: '' },  // Where items were bought from (for 'add')
+  location: { type: String, default: '' },  // Where items were sold/moved to (for 'remove')
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   addedByName: { type: String },
   createdAt: { type: Date, default: Date.now }
@@ -30,6 +32,26 @@ const productSchema = new mongoose.Schema({
   note: { 
     type: String, 
     default: '' 
+  },
+  buyingPrice: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  sellingPrice: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  boughtFrom: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  sellLocation: {
+    type: String,
+    default: '',
+    trim: true
   },
   stockHistory: [stockHistorySchema],
   createdBy: { 

@@ -325,7 +325,7 @@ app.get('/api/products/check/:barcode', authMiddleware, async (req, res) => {
 // Create new product
 app.post('/api/products', authMiddleware, async (req, res) => {
   try {
-    const { barcode, name, quantity, note } = req.body;
+    const { barcode, name, quantity, note, buyingPrice, sellingPrice, boughtFrom, sellLocation } = req.body;
     
     if (!barcode || !name) {
       return res.status(400).json({ message: 'Barcode and name are required' });
@@ -344,6 +344,10 @@ app.post('/api/products', authMiddleware, async (req, res) => {
       name: name.trim(),
       currentStock: initialQuantity,
       note: note || '',
+      buyingPrice: parseFloat(buyingPrice) || 0,
+      sellingPrice: parseFloat(sellingPrice) || 0,
+      boughtFrom: boughtFrom?.trim() || '',
+      sellLocation: sellLocation?.trim() || '',
       stockHistory: initialQuantity > 0 ? [{
         quantity: initialQuantity,
         type: 'add',
@@ -365,7 +369,11 @@ app.post('/api/products', authMiddleware, async (req, res) => {
         barcode: product.barcode,
         name: product.name,
         currentStock: product.currentStock,
-        note: product.note
+        note: product.note,
+        buyingPrice: product.buyingPrice,
+        sellingPrice: product.sellingPrice,
+        boughtFrom: product.boughtFrom,
+        sellLocation: product.sellLocation
       }
     });
   } catch (error) {
@@ -378,7 +386,7 @@ app.post('/api/products', authMiddleware, async (req, res) => {
 app.post('/api/products/:barcode/add-stock', authMiddleware, async (req, res) => {
   try {
     const { barcode } = req.params;
-    const { quantity, note } = req.body;
+    const { quantity, note, supplier } = req.body;
     
     const addQuantity = parseInt(quantity);
     if (!addQuantity || addQuantity <= 0) {
@@ -395,6 +403,7 @@ app.post('/api/products/:barcode/add-stock', authMiddleware, async (req, res) =>
       quantity: addQuantity,
       type: 'add',
       note: note || '',
+      supplier: supplier?.trim() || '',
       addedBy: req.user._id,
       addedByName: req.user.fullName
     });
@@ -421,7 +430,7 @@ app.post('/api/products/:barcode/add-stock', authMiddleware, async (req, res) =>
 app.post('/api/products/:barcode/remove-stock', authMiddleware, async (req, res) => {
   try {
     const { barcode } = req.params;
-    const { quantity, note } = req.body;
+    const { quantity, note, location } = req.body;
     
     const removeQuantity = parseInt(quantity);
     if (!removeQuantity || removeQuantity <= 0) {
@@ -442,6 +451,7 @@ app.post('/api/products/:barcode/remove-stock', authMiddleware, async (req, res)
       quantity: removeQuantity,
       type: 'remove',
       note: note || '',
+      location: location?.trim() || '',
       addedBy: req.user._id,
       addedByName: req.user.fullName
     });
