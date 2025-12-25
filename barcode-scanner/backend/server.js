@@ -388,6 +388,8 @@ app.post('/api/products/:barcode/add-stock', authMiddleware, async (req, res) =>
     const { barcode } = req.params;
     const { quantity, note, supplier } = req.body;
     
+    console.log('Add stock request - supplier:', supplier, 'quantity:', quantity);
+    
     const addQuantity = parseInt(quantity);
     if (!addQuantity || addQuantity <= 0) {
       return res.status(400).json({ message: 'Valid quantity is required' });
@@ -431,6 +433,8 @@ app.post('/api/products/:barcode/remove-stock', authMiddleware, async (req, res)
   try {
     const { barcode } = req.params;
     const { quantity, note, location } = req.body;
+    
+    console.log('Remove stock request - location:', location, 'quantity:', quantity);
     
     const removeQuantity = parseInt(quantity);
     if (!removeQuantity || removeQuantity <= 0) {
