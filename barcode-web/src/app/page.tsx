@@ -28,6 +28,8 @@ export default function Home() {
   const [stockAction, setStockAction] = useState<'add' | 'remove'>('add');
   const [stockQuantity, setStockQuantity] = useState('');
   const [stockNote, setStockNote] = useState('');
+  const [stockSupplier, setStockSupplier] = useState('');
+  const [stockLocation, setStockLocation] = useState('');
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState('');
   
@@ -103,6 +105,8 @@ export default function Home() {
     setStockAction('add');
     setStockQuantity('');
     setStockNote('');
+    setStockSupplier('');
+    setStockLocation('');
     setStockError('');
     // Fetch full product with stock history
     if (token) {
@@ -119,6 +123,8 @@ export default function Home() {
     setSelectedProduct(null);
     setStockQuantity('');
     setStockNote('');
+    setStockSupplier('');
+    setStockLocation('');
     setStockError('');
   };
 
@@ -141,9 +147,9 @@ export default function Home() {
 
     try {
       if (stockAction === 'add') {
-        await addStock(token, selectedProduct.barcode, qty, stockNote);
+        await addStock(token, selectedProduct.barcode, qty, stockNote, stockSupplier);
       } else {
-        await removeStock(token, selectedProduct.barcode, qty, stockNote);
+        await removeStock(token, selectedProduct.barcode, qty, stockNote, stockLocation);
       }
       
       // Refresh the product and products list
@@ -154,6 +160,8 @@ export default function Home() {
       // Clear form
       setStockQuantity('');
       setStockNote('');
+      setStockSupplier('');
+      setStockLocation('');
     } catch (err) {
       setStockError(err instanceof Error ? err.message : 'Failed to update stock');
     } finally {
@@ -440,6 +448,36 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Pricing and Location Info */}
+              {(selectedProduct.buyingPrice || selectedProduct.sellingPrice || selectedProduct.boughtFrom || selectedProduct.sellLocation) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  {selectedProduct.buyingPrice !== undefined && selectedProduct.buyingPrice > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Buying Price</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">${selectedProduct.buyingPrice.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {selectedProduct.sellingPrice !== undefined && selectedProduct.sellingPrice > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Selling Price</p>
+                      <p className="text-lg font-semibold text-green-600 dark:text-green-400">${selectedProduct.sellingPrice.toFixed(2)}</p>
+                    </div>
+                  )}
+                  {selectedProduct.boughtFrom && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Default Supplier</p>
+                      <p className="text-gray-900 dark:text-white text-sm">{selectedProduct.boughtFrom}</p>
+                    </div>
+                  )}
+                  {selectedProduct.sellLocation && (
+                    <div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Default Sell Location</p>
+                      <p className="text-gray-900 dark:text-white text-sm">{selectedProduct.sellLocation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {selectedProduct.note && (
                 <div className="mb-6">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Product Note</p>
@@ -496,16 +534,30 @@ export default function Home() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Note (Optional)
+                      {stockAction === 'add' ? 'Supplier (Where bought from)' : 'Store/Location (Where sold)'}
                     </label>
                     <input
                       type="text"
-                      value={stockNote}
-                      onChange={(e) => setStockNote(e.target.value)}
-                      placeholder={stockAction === 'add' ? 'e.g., Received from supplier' : 'e.g., Sold to customer'}
+                      value={stockAction === 'add' ? stockSupplier : stockLocation}
+                      onChange={(e) => stockAction === 'add' ? setStockSupplier(e.target.value) : setStockLocation(e.target.value)}
+                      placeholder={stockAction === 'add' ? 'e.g., ABC Supplier' : 'e.g., Main Store'}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
                     />
                   </div>
+                </div>
+
+                {/* Note */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Note (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={stockNote}
+                    onChange={(e) => setStockNote(e.target.value)}
+                    placeholder={stockAction === 'add' ? 'e.g., Monthly restock' : 'e.g., Online order #1234'}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                  />
                 </div>
 
                 {stockError && (
@@ -530,24 +582,54 @@ export default function Home() {
               {/* Stock History */}
               {selectedProduct.stockHistory && selectedProduct.stockHistory.length > 0 && (
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Stock History</h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Stock History ({selectedProduct.stockHistory.length} records)</h4>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
                     {selectedProduct.stockHistory.slice().reverse().map((history, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 text-sm font-semibold rounded ${
+                      <div key={idx} className={`p-4 rounded-lg border-l-4 ${
+                        history.type === 'add' 
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-500' 
+                          : 'bg-red-50 dark:bg-red-900/20 border-red-500'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`px-3 py-1 text-sm font-bold rounded ${
                             history.type === 'add' 
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' 
                               : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
                           }`}>
-                            {history.type === 'add' ? '+' : '-'}{history.quantity}
+                            {history.type === 'add' ? '+' : '-'}{history.quantity} units
                           </span>
-                          <span className="text-sm text-gray-600 dark:text-gray-300">{history.note || 'No note'}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(history.createdAt)}</span>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{history.addedByName}</p>
-                          <p className="text-xs text-gray-400">{formatDate(history.createdAt)}</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          {/* Supplier or Location */}
+                          {history.type === 'add' && history.supplier && (
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Supplier: </span>
+                              <span className="text-gray-800 dark:text-gray-200 font-medium">{history.supplier}</span>
+                            </div>
+                          )}
+                          {history.type === 'remove' && history.location && (
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Sold at: </span>
+                              <span className="text-gray-800 dark:text-gray-200 font-medium">{history.location}</span>
+                            </div>
+                          )}
+                          
+                          {/* By user */}
+                          <div>
+                            <span className="text-gray-500 dark:text-gray-400">By: </span>
+                            <span className="text-gray-800 dark:text-gray-200">{history.addedByName}</span>
+                          </div>
                         </div>
+                        
+                        {/* Note */}
+                        {history.note && (
+                          <div className="mt-2 text-sm">
+                            <span className="text-gray-500 dark:text-gray-400">Note: </span>
+                            <span className="text-gray-700 dark:text-gray-300 italic">{history.note}</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

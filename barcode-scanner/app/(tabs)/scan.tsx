@@ -69,6 +69,14 @@ export default function ScanScreen() {
     const [note, setNote] = useState('');
     const [modalError, setModalError] = useState('');
     const [stockAction, setStockAction] = useState<'add' | 'remove'>('add');
+    // New product pricing and location fields
+    const [buyingPrice, setBuyingPrice] = useState('');
+    const [sellingPrice, setSellingPrice] = useState('');
+    const [boughtFrom, setBoughtFrom] = useState('');
+    const [sellLocation, setSellLocation] = useState('');
+    // Stock action supplier/location fields (for existing products)
+    const [stockSupplier, setStockSupplier] = useState('');
+    const [stockLocation, setStockLocation] = useState('');
 
   // Start scan delay timer when entering camera mode
   useEffect(() => {
@@ -135,6 +143,12 @@ export default function ScanScreen() {
     setProductName('');
     setQuantity('');
     setNote('');
+    setBuyingPrice('');
+    setSellingPrice('');
+    setBoughtFrom('');
+    setSellLocation('');
+    setStockSupplier('');
+    setStockLocation('');
     setExistingProduct(null);
     setModalVisible(true);
 
@@ -196,6 +210,10 @@ export default function ScanScreen() {
           name: productName.trim(),
           quantity: parseInt(quantity),
           note: note.trim(),
+          buyingPrice: parseFloat(buyingPrice) || 0,
+          sellingPrice: parseFloat(sellingPrice) || 0,
+          boughtFrom: boughtFrom.trim(),
+          sellLocation: sellLocation.trim(),
         }),
       });
 
@@ -233,6 +251,7 @@ export default function ScanScreen() {
         body: JSON.stringify({
           quantity: parseInt(quantity),
           note: note.trim(),
+          supplier: stockSupplier.trim(),
         }),
       });
 
@@ -276,6 +295,7 @@ export default function ScanScreen() {
         body: JSON.stringify({
           quantity: qty,
           note: note.trim(),
+          location: stockLocation.trim(),
         }),
       });
 
@@ -311,6 +331,12 @@ export default function ScanScreen() {
     setNote('');
     setModalError('');
     setStockAction('add');
+    setBuyingPrice('');
+    setSellingPrice('');
+    setBoughtFrom('');
+    setSellLocation('');
+    setStockSupplier('');
+    setStockLocation('');
     if (scanMode === 'keyboard') focusInput();
   };
 
@@ -817,6 +843,44 @@ export default function ScanScreen() {
                     keyboardType="number-pad"
                   />
 
+                  {/* Supplier field for adding stock */}
+                  {stockAction === 'add' && (
+                    <>
+                      <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                        Supplier (Where bought from)
+                      </Text>
+                      <TextInput
+                        style={[styles.modalInput, { 
+                          backgroundColor: isDark ? '#333' : '#f5f5f5',
+                          color: isDark ? '#fff' : '#000'
+                        }]}
+                        value={stockSupplier}
+                        onChangeText={setStockSupplier}
+                        placeholder="e.g., ABC Supplier"
+                        placeholderTextColor={isDark ? '#666' : '#999'}
+                      />
+                    </>
+                  )}
+
+                  {/* Location field for removing stock */}
+                  {stockAction === 'remove' && (
+                    <>
+                      <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                        Store/Location (Where sold)
+                      </Text>
+                      <TextInput
+                        style={[styles.modalInput, { 
+                          backgroundColor: isDark ? '#333' : '#f5f5f5',
+                          color: isDark ? '#fff' : '#000'
+                        }]}
+                        value={stockLocation}
+                        onChangeText={setStockLocation}
+                        placeholder="e.g., Main Store"
+                        placeholderTextColor={isDark ? '#666' : '#999'}
+                      />
+                    </>
+                  )}
+
                   <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
                     Note (Optional) - Will be added to history
                   </Text>
@@ -866,6 +930,70 @@ export default function ScanScreen() {
                     placeholder="Enter quantity"
                     placeholderTextColor={isDark ? '#666' : '#999'}
                     keyboardType="number-pad"
+                  />
+
+                  {/* Pricing Section */}
+                  <View style={styles.rowInputs}>
+                    <View style={styles.halfInput}>
+                      <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                        Buying Price
+                      </Text>
+                      <TextInput
+                        style={[styles.modalInput, { 
+                          backgroundColor: isDark ? '#333' : '#f5f5f5',
+                          color: isDark ? '#fff' : '#000'
+                        }]}
+                        value={buyingPrice}
+                        onChangeText={setBuyingPrice}
+                        placeholder="0.00"
+                        placeholderTextColor={isDark ? '#666' : '#999'}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <View style={styles.halfInput}>
+                      <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                        Selling Price
+                      </Text>
+                      <TextInput
+                        style={[styles.modalInput, { 
+                          backgroundColor: isDark ? '#333' : '#f5f5f5',
+                          color: isDark ? '#fff' : '#000'
+                        }]}
+                        value={sellingPrice}
+                        onChangeText={setSellingPrice}
+                        placeholder="0.00"
+                        placeholderTextColor={isDark ? '#666' : '#999'}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Bought From (Supplier)
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={boughtFrom}
+                    onChangeText={setBoughtFrom}
+                    placeholder="e.g., ABC Supplier"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
+                  />
+
+                  <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
+                    Sell Location (Store/Warehouse)
+                  </Text>
+                  <TextInput
+                    style={[styles.modalInput, { 
+                      backgroundColor: isDark ? '#333' : '#f5f5f5',
+                      color: isDark ? '#fff' : '#000'
+                    }]}
+                    value={sellLocation}
+                    onChangeText={setSellLocation}
+                    placeholder="e.g., Main Store"
+                    placeholderTextColor={isDark ? '#666' : '#999'}
                   />
 
                   <Text style={[styles.inputLabel, { color: isDark ? '#aaa' : '#666' }]}>
@@ -1226,6 +1354,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     fontSize: 16,
     marginBottom: 16,
+  },
+  rowInputs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
   },
   noteInput: {
     minHeight: 80,

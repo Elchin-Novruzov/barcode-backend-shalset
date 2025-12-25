@@ -42,6 +42,8 @@ export interface StockHistoryItem {
   quantity: number;
   type: 'add' | 'remove';
   note: string;
+  supplier?: string;  // Where items were bought from (for 'add')
+  location?: string;  // Where items were sold/moved to (for 'remove')
   addedByName: string;
   createdAt: string;
 }
@@ -52,6 +54,10 @@ export interface Product {
   name: string;
   currentStock: number;
   note: string;
+  buyingPrice?: number;
+  sellingPrice?: number;
+  boughtFrom?: string;
+  sellLocation?: string;
   stockHistory: StockHistoryItem[];
   createdByName: string;
   createdAt: string;
@@ -139,14 +145,14 @@ export async function getProductByBarcode(token: string, barcode: string): Promi
   return data.product;
 }
 
-export async function addStock(token: string, barcode: string, quantity: number, note: string): Promise<Product> {
+export async function addStock(token: string, barcode: string, quantity: number, note: string, supplier?: string): Promise<Product> {
   const response = await fetch(`${API_ENDPOINTS.PRODUCTS}/${barcode}/add-stock`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ quantity, note }),
+    body: JSON.stringify({ quantity, note, supplier }),
   });
   
   if (!response.ok) {
@@ -158,14 +164,14 @@ export async function addStock(token: string, barcode: string, quantity: number,
   return data.product;
 }
 
-export async function removeStock(token: string, barcode: string, quantity: number, note: string): Promise<Product> {
+export async function removeStock(token: string, barcode: string, quantity: number, note: string, location?: string): Promise<Product> {
   const response = await fetch(`${API_ENDPOINTS.PRODUCTS}/${barcode}/remove-stock`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ quantity, note }),
+    body: JSON.stringify({ quantity, note, location }),
   });
   
   if (!response.ok) {
