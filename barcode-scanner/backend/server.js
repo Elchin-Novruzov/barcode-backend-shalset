@@ -70,6 +70,14 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+// Admin middleware - requires admin role
+const adminMiddleware = async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+};
+
 // Routes
 
 // Login
@@ -106,7 +114,8 @@ app.post('/api/auth/login', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        fullName: user.fullName
+        fullName: user.fullName,
+        role: user.role
       }
     });
   } catch (error) {
@@ -122,7 +131,8 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
     user: {
       id: req.user._id,
       username: req.user.username,
-      fullName: req.user.fullName
+      fullName: req.user.fullName,
+      role: req.user.role
     }
   });
 });
@@ -135,6 +145,132 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============ USER MANAGEMENT ROUTES (Admin only) ============
+
+// Get all users
+app.get('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      users
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ message: 'Failed to get users' });
+  }
+});
+
+// Create new user (Admin only)
+app.post('/api/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { username, password, fullName, role } = req.body;
+    
+    if (!username || !password || !fullName) {
+      return res.status(400).json({ message: 'Username, password, and full name are required' });
+    }
+    
+    // Check if username exists
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Username already exists' });
+    }
+    
+    const user = new User({
+      username: username.toLowerCase(),
+      password,
+      fullName,
+      role: role || 'user'
+    });
+    
+    await user.save();
+    
+    res.status(201).json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ message: 'Failed to create user' });
+  }
+});
+
+// Update user (Admin only)
+app.put('/api/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, password, fullName, role } = req.body;
+    
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Check if new username is taken by another user
+    if (username && username.toLowerCase() !== user.username) {
+      const existingUser = await User.findOne({ username: username.toLowerCase() });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Username already exists' });
+      }
+      user.username = username.toLowerCase();
+    }
+    
+    if (fullName) user.fullName = fullName;
+    if (role) user.role = role;
+    if (password) user.password = password; // Will be hashed by pre-save hook
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        username: user.username,
+        fullName: user.fullName,
+        role: user.role,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin
+      }
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Failed to update user' });
+  }
+});
+
+// Delete user (Admin only)
+app.delete('/api/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Prevent self-deletion
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({ message: 'Cannot delete your own account' });
+    }
+    
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    await User.findByIdAndDelete(id);
+    
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Failed to delete user' });
+  }
 });
 
 // ============ SCAN ROUTES ============
